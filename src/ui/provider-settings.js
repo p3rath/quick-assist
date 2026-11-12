@@ -1,0 +1,18 @@
+document.addEventListener('DOMContentLoaded',()=>{
+ const $=id=>document.getElementById(id),api=window.electronAPI;
+ const presets={gemini:{endpoint:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-3.8-flash'},openai:{endpoint:'https://api.openai.com/v1',model:'gpt-4.1-mini'},responses:{endpoint:'https://api.openai.com/v1',model:'gpt-4.1-mini'},anthropic:{endpoint:'https://api.anthropic.com/v1',model:''}};
+ let saved={},pending=false;
+ const clean=e=>String(e.message||e).replace(/^Error invoking remote method '[^']+': (?:Error: )?/,'');
+ const draft=()=>({provider:$('aiProvider').value,endpoint:$('aiEndpoint').value.trim(),model:$('aiModel').value.trim(),key:$('aiKey').value.trim()});
+ function fill(){const p=saved[$('aiProvider').value]||presets[$('aiProvider').value];$('aiEndpoint').value=p.endpoint;$('aiModel').value=p.model;$('aiKey').value='';$('aiKey').placeholder=p.hasKey?'Key saved securely — leave blank to keep':'Enter this provider’s key (optional for local servers)';$('aiModels').replaceChildren();$('aiStatus').textContent='Load models or enter an exact model ID. Test text and image requests before saving.';}
+ async function load(){try{const s=await api.getSettings();saved=s.aiProfiles||{};$('aiProvider').value=s.aiProvider||'gemini';fill();if(s.aiEndpoint)$('aiEndpoint').value=s.aiEndpoint;if(s.aiModel)$('aiModel').value=s.aiModel;if(s.aiHasKey)$('aiKey').placeholder='Key saved securely — leave blank to keep';}catch(e){$('aiStatus').textContent=clean(e);}}
+ function lock(value){pending=value;for(const id of ['aiProvider','aiEndpoint','aiModel','aiKey','aiLoadModels','aiTestText','aiTestImage','aiSave','aiVoiceSetup'])$(id).disabled=value;}
+ async function run(label,operation){if(pending)return;lock(true);$('aiStatus').textContent=label;try{await operation();}catch(e){$('aiStatus').textContent=clean(e);}finally{lock(false);}}
+ $('aiProvider').onchange=fill;
+ $('aiEndpoint').onchange=()=>{const old=saved[$('aiProvider').value]?.endpoint;if(old&&old.replace(/\/+$/,'')!==$('aiEndpoint').value.trim().replace(/\/+$/,'')){$('aiKey').value='';$('aiKey').placeholder='Endpoint changed — enter the key for this service';}};
+ $('aiLoadModels').onclick=()=>run('Loading models…',async()=>{const models=await api.listAIModels(draft());$('aiModels').replaceChildren();for(const model of models){const option=document.createElement('option');option.value=model.id;option.label=model.label;$('aiModels').append(option);}if(!$('aiModel').value&&models.length)$('aiModel').value=models[0].id;$('aiStatus').textContent=`Loaded ${models.length} models. Pick one supporting images for screenshots.`;});
+ for(const [id,withImage]of [['aiTestText',false],['aiTestImage',true]])$(id).onclick=()=>run(withImage?'Sending a bundled test image…':'Testing a short text request…',async()=>{const result=await api.testAIConnection(draft(),withImage);$('aiStatus').textContent=`${withImage?'Image request accepted':'Connected'} · ${result.model} · ${(result.latency/1000).toFixed(2)}s\n${result.response.slice(0,160)}\nSave AI settings to use this connection.`;});
+ $('aiSave').onclick=()=>run('Saving…',async()=>{const cfg=draft();const result=await api.saveSettings({aiProvider:cfg.provider,aiEndpoint:cfg.endpoint,aiModel:cfg.model,aiKey:cfg.key});if(!result.success)throw new Error(result.error||'Unable to save provider.');await load();$('aiStatus').textContent='AI settings saved. New questions use this connection.';});
+ $('aiVoiceSetup').onclick=()=>run('Opening voice setup…',async()=>{await api.showVoiceSetup();$('aiStatus').textContent='Voice setup opened.';});
+ api.receive?.('settings-window-shown',()=>{if(!pending)load();});load();
+});

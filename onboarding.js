@@ -451,7 +451,7 @@
   function populateSummary() {
     const rows = [];
     rows.push({
-      label: '<i class="fas fa-key"></i> Gemini API',
+      label: '<i class="fas fa-key"></i> AI connection',
       value: (state.geminiKey || state.geminiConfigured) ? 'Configured' : 'Missing',
       cls: (state.geminiKey || state.geminiConfigured) ? 'ok' : 'skip',
     });
@@ -659,7 +659,7 @@
   // a partial config don't have to retype.
   if (window.electronAPI && window.electronAPI.getFirstRunStatus) {
     window.electronAPI.getFirstRunStatus().then((s) => {
-      if (s && s.geminiConfigured) {
+      if (s && (s.aiConfigured || s.geminiConfigured)) {
         // We can't read the key back (settings returns empty for keys),
         // but we can mark status as success if the env file already has one
         // and let the user advance without retyping it.

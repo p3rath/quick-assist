@@ -2,6 +2,7 @@ const { GoogleGenAI } = require('@google/genai');
 const logger = require('../core/logger').createServiceLogger('LLM');
 const config = require('../core/config');
 const { promptLoader } = require('../../prompt-loader');
+const ai = require('./ai-provider');
 
 class LLMService {
   constructor() {
@@ -15,31 +16,40 @@ class LLMService {
   }
 
   initializeClient() {
-    const apiKey = config.getApiKey('GEMINI');
-    
-    if (!apiKey || apiKey === 'your-api-key-here') {
-      logger.warn('Gemini API key not configured', { 
-        keyExists: !!apiKey,
-        isPlaceholder: apiKey === 'your-api-key-here'
-      });
-      return;
-    }
-
     try {
-      this.client = new GoogleGenAI({ apiKey });
-      
-      // Use the configured model name (default: gemini-3.5-flash)
-      this.model = config.get('llm.gemini.model');
-      this.isInitialized = true;
-      
-      logger.info('Gemini AI client initialized successfully', {
-        model: this.model
-      });
-    } catch (error) {
-      logger.error('Failed to initialize Gemini client', { 
-        error: error.message 
-      });
-    }
+      const electron=require('electron');
+      if(electron.app?.getPath && !this._profiles){const Profiles=require('../core/ai-profiles');this._profiles=new Profiles(require('path').join(electron.app.getPath('userData'),'ai-profiles.json'),electron.safeStorage);}
+      const legacy=config.getApiKey('GEMINI');
+      if(this._profiles && legacy && !/^your[_-]/i.test(legacy) && Object.keys(this._profiles.public().profiles).length===0 && electron.safeStorage.isEncryptionAvailable())this._profiles.save({provider:'gemini',...ai.PRESETS.gemini,key:legacy});
+      const selected=this.getProviderConfig();this.model=selected.model;
+      this.isInitialized=!!selected.key || !!this._profiles?.public().profiles[selected.provider];
+      this.client=selected.provider==='gemini'&&selected.key?new GoogleGenAI({apiKey:selected.key}):null;
+    }catch(error){this.isInitialized=false;logger.warn('AI provider requires configuration',{error:error.message});}
+  }
+
+  getProviderConfig(draft) {
+    if(this._profiles)return this._profiles.resolve(draft||{});
+    return {provider:'gemini',...ai.PRESETS.gemini,model:this.model||config.get('llm.gemini.model'),key:config.getApiKey('GEMINI')||'',...draft};
+  }
+
+  getProviderSettings() {
+    return this._profiles?.public()||{provider:'gemini',...ai.PRESETS.gemini,hasKey:!!config.getApiKey('GEMINI'),profiles:{}};
+  }
+
+  saveProviderConfig(draft) {
+    if(!this._profiles)throw new Error('Provider settings are available in the desktop app.');
+    const result=this._profiles.save(draft);this.initializeClient();return result;
+  }
+
+  async listProviderModels(draft) {
+    return ai.listModels(this.getProviderConfig({...draft,model:draft?.model||'_models'}));
+  }
+
+  async testProviderConnection(draft,imageData) {
+    const selected=this.getProviderConfig(draft);const started=Date.now();
+    const parts=[{text:'Reply with only OK.'}];if(imageData)parts.push({inlineData:{mimeType:'image/png',data:imageData}});
+    const response=await ai.generate(selected,{contents:[{role:'user',parts}]},null,{timeoutMs:30000});
+    return {success:true,response,latency:Date.now()-started,provider:selected.provider,model:selected.model,imageAccepted:!!imageData};
   }
 
   getGenerationConfig(overrides = {}) {
@@ -122,7 +132,7 @@ class LLMService {
    */
   async processImageWithSkill(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
@@ -135,6 +145,7 @@ class LLMService {
     try {
       // Build system instruction using the skill prompt (with optional language injection)
       const { promptLoader } = require('../../prompt-loader');
+const ai = require('./ai-provider');
       const skillPrompt = promptLoader.getSkillPrompt(activeSkill, programmingLanguage) || '';
 
       const request = this.buildImageRequest(imageBuffer, mimeType, activeSkill, programmingLanguage);
@@ -207,7 +218,7 @@ class LLMService {
 
   async processImageWithSkillStream(imageBuffer, mimeType, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
@@ -274,7 +285,7 @@ class LLMService {
 
   async processTextWithSkill(text, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     const startTime = Date.now();
@@ -361,7 +372,7 @@ class LLMService {
 
   async processTextWithSkillStream(text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     const startTime = Date.now();
@@ -409,7 +420,7 @@ class LLMService {
 
   async processTranscriptionWithIntelligentResponse(text, activeSkill, sessionMemory = [], programmingLanguage = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     const startTime = Date.now();
@@ -897,7 +908,7 @@ class LLMService {
    */
   async processTranscriptionWithIntelligentResponseStream(text, activeSkill, sessionMemory = [], programmingLanguage = null, onDelta = null) {
     if (!this.isInitialized) {
-      throw new Error('LLM service not initialized. Check Gemini API key configuration.');
+      throw new Error('Choose your AI provider, endpoint, model and key in Settings.');
     }
 
     const startTime = Date.now();
@@ -970,29 +981,7 @@ class LLMService {
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
-    const model=this.model;
-    try {
-      const text=await this._streamRequestForModel(geminiRequest,model,config.getApiKey('GEMINI'),onDelta);
-      if(!text)throw new Error('Gemini returned no text for this request.');
-      return text;
-    } catch(error) {
-      throw this.describeStreamingError(error,model);
-    }
-  }
-
-  describeStreamingError(error,model) {
-    const original=String(error.message||error);
-    const http=/^HTTP (\d+):\s*([\s\S]*)$/.exec(original);
-    let detail=original;
-    if(http){
-      try{detail=JSON.parse(http[2]).error?.message||http[2];}catch{detail=http[2];}
-    }
-    if(/First text timeout/.test(original))detail='No answer arrived within 60 seconds. The request stopped; try again when Gemini or your connection is less busy.';
-    const key=config.getApiKey('GEMINI');
-    if(key)detail=detail.split(key).join('[redacted]');
-    const result=new Error(`${model}${http?' ('+http[1]+')':''}: ${detail}`,{cause:error});
-    if(http)result.status=Number(http[1]);
-    return result;
+    return ai.generate(this.getProviderConfig(),geminiRequest,onDelta);
   }
 
   getHttpsAgent() {
@@ -1006,87 +995,8 @@ class LLMService {
     return settings;
   }
 
-  _streamRequestForModel(geminiRequest, modelName, apiKey, onDelta) {
-    const https = require('https');
-    const timeout = config.get('llm.gemini.timeout');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`;
-    const postData = JSON.stringify({...geminiRequest,generationConfig:this.getModelGenerationConfig(geminiRequest.generationConfig,modelName)});
-    const agent = this.getHttpsAgent();
-
-    const options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-        'Content-Length': Buffer.byteLength(postData),
-        'User-Agent': this.getUserAgent()
-      },
-      timeout,
-      agent
-    };
-
-    return new Promise((resolve, reject) => {
-      let settled=false,firstTextTimer;
-      const finish=(error,text)=>{if(settled)return;settled=true;clearTimeout(firstTextTimer);error?reject(error):resolve(text);};
-      const req = https.request(url, options, (res) => {
-        if (res.statusCode !== 200) {
-          let errBody = '';
-          res.on('data', (c) => { errBody += c; });
-          res.on('end', () => finish(new Error(`HTTP ${res.statusCode}: ${errBody}`)));
-          res.on('error',error=>finish(error));
-          return;
-        }
-
-        let fullText = '';
-        let buffer = '';
-
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          if(settled)return;
-          buffer += chunk;
-          let idx;
-          while ((idx = buffer.indexOf('\n')) !== -1) {
-            const line = buffer.slice(0, idx).trim();
-            buffer = buffer.slice(idx + 1);
-            if (!line.startsWith('data:')) {
-              continue;
-            }
-            const payload = line.slice(5).trim();
-            if (!payload || payload === '[DONE]') {
-              continue;
-            }
-            try {
-              const json = JSON.parse(payload);
-              const piece = this._extractChunkText(json);
-              if (piece) {
-                clearTimeout(firstTextTimer);
-                fullText += piece;
-                if (typeof onDelta === 'function') {
-                  onDelta(piece);
-                }
-              }
-            } catch (_) {
-              // Partial JSON across chunk boundaries is rare with line framing;
-              // skip anything that doesn't parse cleanly.
-            }
-          }
-        });
-
-        res.on('end', () => finish(null,fullText.trim()));
-        res.on('aborted',()=>finish(new Error('Streaming response was interrupted')));
-        res.on('error', (error) => finish(new Error(`Streaming response error: ${error.message}`)));
-      });
-
-      req.on('error', (error) => finish(new Error(`Streaming request failed: ${error.message}`)));
-      req.on('timeout', () => {
-        req.destroy();
-        finish(new Error('Streaming request timeout'));
-      });
-
-      firstTextTimer=setTimeout(()=>{finish(new Error('First text timeout'));req.destroy();},config.get('llm.gemini.firstTextTimeout')||60000);
-      req.write(postData);
-      req.end();
-    });
+  _streamRequestForModel(request,model,key,onDelta) {
+    return ai.generate({provider:'gemini',endpoint:ai.PRESETS.gemini.endpoint,model,key},request,onDelta);
   }
 
   async performPreflightCheck() {
@@ -1250,7 +1160,7 @@ class LLMService {
   generateIntelligentFallbackResponse(text, activeSkill) {
     logger.info('Generating intelligent fallback response for transcription', { activeSkill });
 
-    const response = 'I could not get an AI response. Check your Gemini connection in Settings and try again.';
+    const response = 'I could not get an AI response. Test your selected AI provider in Settings and try again.';
 
     return {
       response,
@@ -1265,94 +1175,7 @@ class LLMService {
   }
 
   async testConnection() {
-    if (!this.isInitialized) {
-      return { success: false, error: 'Service not initialized' };
-    }
-
-    try {
-      // First check network connectivity
-      const networkCheck = await this.checkNetworkConnectivity();
-      const hasNetworkIssues = networkCheck.tests.some(test => !test.success);
-      
-      if (hasNetworkIssues) {
-        logger.warn('Network connectivity issues detected', networkCheck);
-      }
-
-      const generationConfig = this.getGenerationConfig({ temperature: 0, maxOutputTokens: 64 });
-      const fallbackModels = config.get('llm.gemini.fallbackModels') || [];
-      const modelsToTry = [this.model, ...fallbackModels];
-
-      let lastError = null;
-      let result = null;
-      let usedModel = null;
-
-      for (const modelName of modelsToTry) {
-        try {
-          const startTime = Date.now();
-          result = await this.client.models.generateContent({
-            model: modelName,
-            contents: 'Test connection. Please respond with "OK".',
-            config: generationConfig
-          });
-          usedModel = modelName;
-          const latency = Date.now() - startTime;
-          const { text } = this.extractTextFromCandidates(result);
-
-          logger.info('Connection test successful', {
-            response: text,
-            latency,
-            model: usedModel,
-            networkCheck: hasNetworkIssues ? 'issues_detected' : 'healthy'
-          });
-
-          return {
-            success: true,
-            response: text,
-            latency,
-            model: usedModel,
-            networkConnectivity: networkCheck
-          };
-        } catch (error) {
-          lastError = error;
-          logger.warn(`Connection test failed for model ${modelName}`, {
-            error: error.message,
-            model: modelName
-          });
-
-          const isModelUnavailable = error.message.includes('503') ||
-            error.message.includes('UNAVAILABLE') ||
-            error.message.includes('high demand') ||
-            error.message.includes('quota') ||
-            error.message.includes('rate limit');
-
-          if (!isModelUnavailable && modelName === this.model) {
-            // Primary model failed for a non-availability reason; don't hide it
-            break;
-          }
-        }
-      }
-
-      throw lastError || new Error('Connection test failed on all models');
-    } catch (error) {
-      const errorAnalysis = this.analyzeError(error);
-      logger.error('Connection test failed', {
-        error: error.message,
-        errorAnalysis
-      });
-
-      // Map raw SDK errors to user-friendly messages. The wizard only
-      // surfaces `error`, so any raw SDK error string would land in the
-      // UI verbatim.
-      const friendlyError = this._friendlyTestError(error, errorAnalysis);
-
-      return {
-        success: false,
-        error: friendlyError,
-        errorType: errorAnalysis?.type || 'UNKNOWN',
-        errorAnalysis,
-        networkConnectivity: await this.checkNetworkConnectivity().catch(() => null)
-      };
-    }
+    try{return await this.testProviderConnection();}catch(error){return {success:false,error:error.message};}
   }
 
   /**
@@ -1385,11 +1208,8 @@ class LLMService {
   }
 
   updateApiKey(newApiKey) {
-    process.env.GEMINI_API_KEY = newApiKey;
-    this.isInitialized = false;
-    this.initializeClient();
-    
-    logger.info('API key updated and client reinitialized');
+    if(this._profiles)this.saveProviderConfig({provider:'gemini',...ai.PRESETS.gemini,key:newApiKey});
+    else{process.env.GEMINI_API_KEY=newApiKey;this.initializeClient();}
   }
 
   getStats() {

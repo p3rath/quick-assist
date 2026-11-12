@@ -270,6 +270,7 @@
         .settings-note code {
             color: rgba(255, 255, 255, 0.9);
         }
+        .ai-buttons{display:flex;flex-wrap:wrap;gap:6px}.settings-stack label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#ddd}.settings-stack .input-field{width:100%;max-width:none}#aiStatus{white-space:pre-wrap;overflow-wrap:anywhere}
     </style>
 </head>
 <body>
@@ -459,19 +460,20 @@
             <div class="settings-section">
                 <div class="settings-section-title">
                     <i class="fas fa-robot"></i>
-                    Gemini Settings
+                    AI Provider
                 </div>
-                <div class="settings-section-content">
-                    <div class="settings-item">
-                        <div>
-                            <div class="settings-item-label">Google API Key</div>
-                            <div class="settings-item-description">Your Google API key for Gemini models</div>
-                        </div>
-                        <input type="password" class="input-field" id="geminiKey" placeholder="Enter your Google API key">
-                    </div>
+                <div class="settings-section-content settings-stack">
+                    <div class="settings-note">Choose the API format your provider supports. Screenshots need a model that accepts images. Voice keeps your existing Whisper/Azure setup.</div>
+                    <label>API format<select class="input-field" id="aiProvider"><option value="gemini">Google Gemini</option><option value="openai">OpenAI / compatible — Chat Completions</option><option value="responses">OpenAI — Responses API</option><option value="anthropic">Anthropic Claude</option></select></label>
+                    <label>Base API URL<input class="input-field" id="aiEndpoint" type="url" placeholder="https://api.openai.com/v1"></label>
+                    <label>Model ID<input class="input-field" id="aiModel" list="aiModels" placeholder="Exact model ID from your provider"><datalist id="aiModels"></datalist></label>
+                    <label>API key<input type="password" class="input-field" id="aiKey" placeholder="Enter this provider's key" autocomplete="off"></label>
+                    <div class="settings-note">Saved keys are encrypted on this Windows account. Leave the key blank to keep it for the same endpoint; a changed endpoint needs its own key. Local servers may not require one.</div>
+                    <div class="ai-buttons"><button class="btn" id="aiLoadModels">Load models</button><button class="btn" id="aiTestText">Test text</button><button class="btn" id="aiTestImage">Test image</button><button class="btn" id="aiSave">Save AI settings</button><button class="btn" id="aiVoiceSetup">Voice setup</button></div>
+                    <div class="settings-note" id="aiStatus" role="status">Enter a provider, endpoint and model, then test the connection.</div>
                 </div>
             </div>
-            
+
             <div class="settings-section">
                 <div class="settings-section-title">
                     <i class="fas fa-window-maximize"></i>
@@ -491,5 +493,6 @@
     </div>
 
     <script src="./src/ui/settings-window.js"></script>
+    <script src="./src/ui/provider-settings.js"></script>
 </body>
 </html>

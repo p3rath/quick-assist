@@ -131,6 +131,7 @@ class ApplicationController {
     // dig through docs to figure out they need a Gemini API key.
     this.firstRunManager = new FirstRunManager({
       logger: logger,
+      isAIConfigured: () => llmService.isInitialized,
       // .env and the sentinel both live in userData so they survive cwd
       // changes and read-only install dirs (the app may be launched from
       // any directory). ENV_PATH is the same file dotenv loaded at startup
@@ -240,6 +241,8 @@ class ApplicationController {
     try {
       this.setupPermissions();
       this.setupNetworkConfiguration();
+      llmService.initializeClient();
+      if(process.env.GEMINI_API_KEY && llmService.getProviderSettings().profiles.gemini?.hasKey)this.persistEnvUpdates({GEMINI_API_KEY:''});
 
       // Small delay to ensure desktop/space detection is accurate
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -274,7 +277,7 @@ class ApplicationController {
         // the wizard on top of them.
         setTimeout(() => {
           try {
-            windowManager.showOnboarding();
+            windowManager.showSettings();
             windowManager.broadcastToAllWindows("first-run", status);
             logger.info("First-run onboarding: wizard opened");
           } catch (e) {
@@ -307,29 +310,8 @@ class ApplicationController {
 
   setupNetworkConfiguration() {
     // Configure session to handle network requests better
-    const ses = session.defaultSession;
-    
-    // Allow HTTPS requests to Google APIs
-    ses.webRequest.onBeforeSendHeaders((details, callback) => {
-      if (details.url.includes('generativelanguage.googleapis.com')) {
-        const platformUA = process.platform === 'darwin'
-          ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.156 Safari/537.36'
-          : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.156 Safari/537.36';
-        details.requestHeaders['User-Agent'] = platformUA;
-      }
-      callback({ requestHeaders: details.requestHeaders });
-    });
-    
-    // Handle certificate errors for Google APIs
-    ses.setCertificateVerifyProc((request, callback) => {
-      if (request.hostname === 'generativelanguage.googleapis.com') {
-        callback(0); // Trust Google's certificates
-      } else {
-        callback(-2); // Use default verification
-      }
-    });
-    
-    logger.debug('Network configuration applied for Gemini API');
+    // AI transport uses Electron net.fetch: system proxy configuration and default TLS validation.
+    logger.debug('Using system networking for configured AI providers');
   }
 
   setupPermissions() {
@@ -687,6 +669,12 @@ class ApplicationController {
       return windowManager.getWindowBindingStatus();
     });
 
+    ipcMain.handle('ai-list-models',(_event,draft)=>llmService.listProviderModels(draft));
+    ipcMain.handle('ai-test-connection',async(_event,draft,withImage)=>{
+      let image;
+      if(withImage){const {nativeImage}=require('electron');image=nativeImage.createFromPath(path.join(__dirname,'assests/icons/terminal.png')).resize({width:64,height:64}).toPNG().toString('base64');}
+      return llmService.testProviderConnection(draft,image);
+    });
     ipcMain.handle("test-gemini-connection", async () => {
       return await llmService.testConnection();
     });
@@ -733,6 +721,8 @@ class ApplicationController {
 
     // First-run onboarding status — renderer can query to know whether
     // to show the welcome banner / prompt for API-key entry.
+    ipcMain.handle('show-voice-setup',()=>{if(!llmService.isInitialized)throw new Error('Save your AI connection first.');return windowManager.showOnboarding().then(()=>({success:true}));});
+
     ipcMain.handle("get-first-run-status", () => {
       try {
         return this.firstRunManager.getStatus();
@@ -1096,6 +1086,7 @@ class ApplicationController {
       messageId = `img-${Date.now()}-${this._responseSeq}`;
       this.sendToChatWindow("transcription-llm-response-start", {
         messageId,
+        provider: llmService.getProviderSettings().provider,
         isImageAnalysis: true,
         skill: this.activeSkill
       });
@@ -1161,6 +1152,7 @@ class ApplicationController {
       messageId = `chat-${Date.now()}-${this._responseSeq}`;
       this.sendToChatWindow("transcription-llm-response-start", {
         messageId,
+        provider: llmService.getProviderSettings().provider,
         skill: this.activeSkill
       });
       windowManager.hideLLMResponse();
@@ -1328,6 +1320,7 @@ class ApplicationController {
       messageId = `tr-${Date.now()}-${this._responseSeq}`;
       this.sendToVoiceResponseWindows("transcription-llm-response-start", {
         messageId,
+        provider: llmService.getProviderSettings().provider,
         skill: this.activeSkill
       });
       if (this.shouldShowVoiceOverlay()) {
@@ -1602,7 +1595,12 @@ class ApplicationController {
         (process.env.WHISPER_MANUAL_CAPTURE === "true" ? "manual" : "vad"),
       whisperResponseTarget: process.env.WHISPER_RESPONSE_TARGET || "both",
       whisperSegmentMs: process.env.WHISPER_SEGMENT_MS || "4000",
-      geminiKey: process.env.GEMINI_API_KEY || "",
+      geminiKey: '',
+      aiProvider: llmService.getProviderSettings().provider,
+      aiEndpoint: llmService.getProviderSettings().endpoint,
+      aiModel: llmService.getProviderSettings().model,
+      aiHasKey: llmService.getProviderSettings().hasKey,
+      aiProfiles: llmService.getProviderSettings().profiles,
 
       azureConfigured: !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
       speechAvailable: this.speechAvailable
@@ -1611,6 +1609,9 @@ class ApplicationController {
 
   saveSettings(settings) {
     try {
+      if(settings.aiProvider!==undefined){
+        llmService.saveProviderConfig({provider:settings.aiProvider,endpoint:settings.aiEndpoint,model:settings.aiModel,key:settings.aiKey});
+      }
       // ── In-memory updates + window broadcasts ──
       if (settings.codingLanguage) {
         this.codingLanguage = settings.codingLanguage;
@@ -1672,7 +1673,7 @@ class ApplicationController {
         envUpdates.WHISPER_SEGMENT_MS = String(settings.whisperSegmentMs);
       }
       if (settings.geminiKey !== undefined) {
-        envUpdates.GEMINI_API_KEY = settings.geminiKey;
+        if(settings.geminiKey)llmService.updateApiKey(settings.geminiKey);
       }
 
       // Capture the previous whisper command BEFORE persisting — persistEnvUpdates
@@ -1736,7 +1737,7 @@ class ApplicationController {
       }
 
       logger.info("Settings saved successfully", {
-        ...settings,
+        changedFields: Object.keys(settings),
         persistedEnvKeys: persistedKeys
       });
       return { success: true, persistedEnvKeys: persistedKeys };
@@ -1749,7 +1750,7 @@ class ApplicationController {
   persistSettings(settings) {
     // You can extend this to save to a file or database
     // For now, we'll just keep them in memory
-    logger.debug("Settings persisted", settings);
+    logger.debug("Settings persisted", {fields:Object.keys(settings)});
   }
 
   /**

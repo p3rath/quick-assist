@@ -17,6 +17,7 @@ const os = require('os');
  */
 class FirstRunManager {
   constructor(options = {}) {
+    this.isAIConfigured = options.isAIConfigured || null;
     this.cwd = options.cwd || process.cwd();
     this.envPath = options.envPath || path.join(this.cwd, '.env');
     this.sentinelPath = options.sentinelPath || path.join(this.cwd, '.opencluely-firstrun-completed');
@@ -28,6 +29,7 @@ class FirstRunManager {
    * sentinel file, or .env exists but has no Gemini key.
    */
   needsOnboarding() {
+    if(this.isAIConfigured)return !this.isAIConfigured();
     if (!fs.existsSync(this.sentinelPath)) return true;
     if (!fs.existsSync(this.envPath)) return true;
     const content = this._readEnv();
@@ -81,6 +83,7 @@ class FirstRunManager {
     const env = this._readEnv();
     const gemini = (env.GEMINI_API_KEY || '').trim();
     return {
+      aiConfigured: this.isAIConfigured ? this.isAIConfigured() : undefined,
       envExists: fs.existsSync(this.envPath),
       sentinelExists: fs.existsSync(this.sentinelPath),
       geminiConfigured: !!gemini && gemini !== 'your_gemini_api_key_here',

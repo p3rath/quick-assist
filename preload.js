@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendChatMessage: (text) => ipcRenderer.invoke('send-chat-message', text),
   getSkillPrompt: (skillName) => ipcRenderer.invoke('get-skill-prompt', skillName),
   
+  showVoiceSetup: () => ipcRenderer.invoke('show-voice-setup'),
+  listAIModels: (draft) => ipcRenderer.invoke('ai-list-models',draft),
+  testAIConnection: (draft,withImage=false) => ipcRenderer.invoke('ai-test-connection',draft,withImage),
+
   // Gemini LLM configuration
   setGeminiApiKey: (apiKey) => ipcRenderer.invoke('set-gemini-api-key', apiKey),
   getGeminiStatus: () => ipcRenderer.invoke('get-gemini-status'),

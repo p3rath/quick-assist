@@ -4,17 +4,39 @@ This is a modification of [TechyCSR/OpenCluely](https://github.com/TechyCSR/Open
 
 The change is the AI behavior: **general questions and screenshots on any topic**, with concise answers. It reads and answers a visible question, explains an error, summarizes a document, or interprets a chart. Coding help remains available when relevant; it no longer forces every screenshot into a DSA problem or every code block into C++.
 
-Download the single Windows executable from [the General edition release](https://github.com/p3rath/quick-assist/releases/tag/opencluely-general-v1.0.4). Use **OpenCluely-General-Setup-1.0.4.exe** for a normal Windows installation: it creates Start menu/desktop shortcuts and an entry in Settings → Apps → Installed apps, with an uninstaller. A portable executable is also available. Quit older instances before installing/opening the new version. Enter your Gemini key in the original Settings panel. Original local Whisper / Azure speech setup remains available; it has not been replaced with a different voice system.
+Download the single Windows executable from [the General edition release](https://github.com/p3rath/quick-assist/releases/tag/opencluely-general-v1.1.0). Use **OpenCluely-General-Setup-1.1.0.exe** for a normal Windows installation: it creates Start menu/desktop shortcuts and an entry in Settings → Apps → Installed apps, with an uninstaller. A portable executable is also available. Quit older instances before installing/opening the new version. Enter your Gemini key in the original Settings panel. Original local Whisper / Azure speech setup remains available; it has not been replaced with a different voice system.
 
-Version 1.0.4 chooses the smaller of PNG and high-quality JPEG at unchanged screen dimensions, shared HTTPS connections, lower model reasoning effort, and one streamed request to Gemini 3.8 only (without retry sleeps or repeated blocking pipelines). A 60-second first-text deadline permits slower valid requests to finish. It never switches to Gemini 2.5; failures show the actual Gemini 3.8 error. Waiting text displays elapsed time. Provider latency and quota still affect actual speed; no live Gemini speed benchmark was available. Model-specific reasoning controls follow [Google’s documentation](https://ai.google.dev/gemini-api/docs/latest-model). Ctrl+Shift+V restores only the toolbar/chat, and the default chat height is 350 pixels (half the former 700).
+Version 1.1.0 chooses the smaller of PNG and high-quality JPEG at unchanged screen dimensions, shared HTTPS connections, lower model reasoning effort, and one streamed request to the selected provider/model (without retry sleeps or repeated blocking pipelines). A 60-second first-text deadline permits slower valid requests to finish. There is no automatic fallback; failures show the selected provider/model error. Waiting text displays elapsed time. Provider latency and quota still affect actual speed; no live Gemini speed benchmark was available. Model-specific reasoning controls follow [Google’s documentation](https://ai.google.dev/gemini-api/docs/latest-model). Ctrl+Shift+V restores only the toolbar/chat, and the default chat height is 350 pixels (half the former 700).
 
 Screenshots capture the full monitor under your pointer at native resolution, without a crop frame. Screenshot and typed answers appear only in chat and stream as they arrive. Drag the toolbar using the dotted handle; it moves independently of the chat, and the shortcuts popover opens on click rather than hover.
 
-Defaults are General mode and short answers (usually 1–3 sentences). The coding-language setting is a preference only when code is useful; a language requested by the user or visible in their code takes priority. Screenshots include recent conversation text for follow-ups. The default Gemini model is `gemini-3.8-flash`, with no automatic model fallback.
+Defaults are General mode and short answers (usually 1–3 sentences). The coding-language setting is a preference only when code is useful; a language requested by the user or visible in their code takes priority. Screenshots include recent conversation text for follow-ups. The initial Gemini model is `gemini-3.8-flash`; you can change the provider and model in Settings.
 
 This executable is unsigned. Capture exclusion uses the original Windows implementation; verify in your conferencing app preview. Live provider answers still require a valid key and available provider quota. Tests exercise actual request construction with simulated model responses, plus a native Windows launch check.
 
 Modified files: `prompt-loader.js`, the general prompt, screenshot/text/voice request construction, General labels/defaults, SDK system-instruction placement, Gemini model configuration, packaging metadata, and this fork's tests/build workflow. Original authorship and Apache-2.0 LICENSE are retained. This is an independent modification, not an official TechyCSR release.
+
+## Flexible AI connections (1.1.0)
+
+Open Settings → AI Provider, choose an API format, and enter the **base API URL**, **model ID**, and **API key**. Use Load models if the service provides model discovery, then Test text and Test image before saving. Screenshot requests need a vision-capable model. Save AI settings activates that connection without restarting. There is no automatic fallback to a different model or service.
+
+| API format | Example base URL | Notes |
+| --- | --- | --- |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | Native Gemini API; select a model available to your key. |
+| OpenAI / compatible | `https://api.openai.com/v1` | Chat Completions API, bearer authentication. Custom compatible hosts such as OpenRouter/Groq can use their documented base URL. |
+| OpenAI Responses | `https://api.openai.com/v1` | Responses API for providers/models supporting it. |
+| Anthropic Claude | `https://api.anthropic.com/v1` | Native Messages API, API-key authentication. Load models or enter an exact Claude model ID. |
+| Local OpenAI-compatible server | `http://localhost:11434/v1` or `http://localhost:1234/v1` | Choose OpenAI / compatible; key can be blank if the local server does not require authentication. |
+
+This supports these API formats, not arbitrary unrelated APIs or website chat subscriptions. Custom authentication schemes, Azure-specific deployment URLs, and nonstandard request formats may require their own adapter. Model listing is optional; enter a model ID manually if the server has no model-list endpoint. An accepted test image request does not guarantee a model's visual accuracy.
+
+New keys are encrypted with Windows DPAPI and stored per connection. Blank keys keep the saved key only for an unchanged endpoint; changing the endpoint does not reuse the old secret. Existing Gemini keys migrate from `.env` to the encrypted profile file. No keys are returned to the settings form or written to app logs by the new provider controls.
+
+AI requests use Electron's Chromium networking, system proxy settings, and default TLS verification. The SSE parser handles fragmented/multiline events and surfaces stream errors instead of silently dropping malformed data. JSON responses from servers ignoring streaming are also accepted. Timeout errors distinguish connecting, waiting, and receiving phases. These changes address possible client-side causes of a long wait; they do not establish the cause of an individual provider timeout or guarantee service latency.
+
+Voice recognition still uses the original Whisper/Azure setup. Its transcripts are answered by the selected AI provider. The Voice setup button reopens the original guided speech configuration without requiring a Gemini connection.
+
+Connection tests send small real requests to your chosen service, subject to that service's billing and quota. The development tests use simulated provider responses and a local API fixture, without live commercial keys.
 
 The upstream README follows for original setup and controls.
 
