@@ -279,7 +279,7 @@ class ApplicationController {
           try {
             windowManager.showSettings();
             windowManager.broadcastToAllWindows("first-run", status);
-            logger.info("First-run onboarding: wizard opened");
+            logger.info("First-run AI settings opened");
           } catch (e) {
             logger.warn("Could not open first-run onboarding window", {
               error: e.message
@@ -672,7 +672,7 @@ class ApplicationController {
     ipcMain.handle('ai-list-models',(_event,draft)=>llmService.listProviderModels(draft));
     ipcMain.handle('ai-test-connection',async(_event,draft,withImage)=>{
       let image;
-      if(withImage){const {nativeImage}=require('electron');image=nativeImage.createFromPath(path.join(__dirname,'assests/icons/terminal.png')).resize({width:64,height:64}).toPNG().toString('base64');}
+      if(withImage){const {nativeImage}=require('electron');image=nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname,'assests/icons/terminal.png'))).resize({width:64,height:64}).toPNG().toString('base64');}
       return llmService.testProviderConnection(draft,image);
     });
     ipcMain.handle("test-gemini-connection", async () => {
