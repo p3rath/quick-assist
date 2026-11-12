@@ -4,7 +4,7 @@ A small always-on-top assistant for short general answers, code, voice questions
 
 ## Portable Windows build
 
-Download the Windows ZIP from [Releases](https://github.com/p3rath/quick-assist/releases/latest). No Node.js installation is required for the portable build.
+Download the Windows ZIP from the [v0.1.0 preview release](https://github.com/p3rath/quick-assist/releases/tag/v0.1.0). No Node.js installation is required for the portable build.
 
 Extract the entire `Quick Assist-0.1.0-win.zip` archive, then double-click `Quick Assist.exe`. Keep its adjacent files and folders together. The build is unsigned and has not been run on a Windows machine.
 
