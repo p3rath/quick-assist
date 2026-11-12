@@ -1,4 +1,0 @@
-const {contextBridge,ipcRenderer}=require('electron');
-contextBridge.exposeInMainWorld('assistant',{
- settings:()=>ipcRenderer.invoke('settings:get'),saveSettings:data=>ipcRenderer.invoke('settings:save',data),appearance:data=>ipcRenderer.invoke('appearance',data),models:data=>ipcRenderer.invoke('models',data),testConnection:data=>ipcRenderer.invoke('test-connection',data),window:action=>ipcRenderer.invoke('window',action),capture:()=>ipcRenderer.invoke('capture'),ask:data=>ipcRenderer.invoke('ask',data),stop:()=>ipcRenderer.invoke('stop'),clear:()=>ipcRenderer.invoke('clear'),transcribe:data=>ipcRenderer.invoke('transcribe',data),onDelta:fn=>ipcRenderer.on('delta',(_,data)=>fn(data)),onCapture:fn=>ipcRenderer.on('capture-shortcut',()=>fn()),onInteraction:fn=>ipcRenderer.on('interaction',(_,value)=>fn(value))
-});

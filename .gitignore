@@ -1,5 +1,9 @@
 node_modules/
-dist/
 .env
+.venv-whisper/
+.whisper-models/
+eng.traineddata
+dist/
+bin/
+.DS_Store
 *.log
-settings.json

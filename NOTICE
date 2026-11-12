@@ -1,0 +1,8 @@
+OpenCluely General edition
+Based on OpenCluely by TechyCSR and its contributors.
+Upstream: https://github.com/TechyCSR/OpenCluely
+Base commit: 0a9da75135f5aade3a067d86a7c8bb73f372f014
+
+Modified for general-purpose screenshot, chat, and voice assistance.
+Original Apache License 2.0 is included in LICENSE.
+This is an independent modification and is not an official TechyCSR release.

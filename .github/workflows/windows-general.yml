@@ -1,0 +1,35 @@
+name: OpenCluely General Windows
+on:
+  push:
+    branches: [opencluely-general]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Launch original OpenCluely windows in General mode
+        run: node -e "const cp=require('node:child_process');const r=cp.spawnSync(require('electron'),['smoke-general.js'],{stdio:'inherit',timeout:60000});process.exit(r.status??1)"
+      - name: Build original application as a portable executable
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win portable --x64 --publish never -c.win.signAndEditExecutable=false '-c.artifactName=OpenCluely-General-${version}-Windows.${ext}'
+      - name: Confirm general prompt and attribution are packaged
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist/win-unpacked/resources/app.asar.unpacked/prompts/general.md")) { throw "General prompt missing from application" }
+      - name: Upload Windows download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload opencluely-general-v1.0.1 "dist/OpenCluely-General-1.0.1-Windows.exe" --clobber --repo "${{ github.repository }}"
