@@ -4,7 +4,7 @@ function messages(history, text, image, detailed) {
   if(image) content.push({type:'image_url',image_url:{url:image}});
   return [{role:'system',content:SYSTEM+(detailed?' The user requests a detailed explanation of the last answer.':'')},...history.slice(-10),{role:'user',content}];
 }
-async function* deltas(body) {
+async function* events(body) {
   const decoder = new TextDecoder(); let pending='';
   for await (const chunk of body) {
     pending += decoder.decode(chunk,{stream:true});
@@ -13,9 +13,11 @@ async function* deltas(body) {
       const line=pending.slice(0,end).trim(); pending=pending.slice(end+1);
       if(!line.startsWith('data:')) continue;
       const data=line.slice(5).trim(); if(data==='[DONE]') return;
-      const obj=JSON.parse(data); if(obj.error) throw new Error(obj.error.message || 'Provider error');
-      const token=obj.choices?.[0]?.delta?.content; if(token) yield token;
+      yield JSON.parse(data);
     }
   }
+  pending+=decoder.decode();
+  if(pending.trim().startsWith('data:')){const data=pending.trim().slice(5).trim();if(data&&data!=='[DONE]')yield JSON.parse(data);}
 }
-module.exports={messages,deltas};
+async function* deltas(body){for await(const obj of events(body)){if(obj.error)throw new Error(obj.error.message||'Provider error');const token=obj.choices?.[0]?.delta?.content;if(token)yield token;}}
+module.exports={messages,deltas,events};

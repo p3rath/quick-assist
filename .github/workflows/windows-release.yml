@@ -10,13 +10,15 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Verify native Windows window controls and encrypted settings
+        run: node scripts/run-windows-smoke.cjs
       - name: Package single Windows portable executable
         shell: bash
         run: npx electron-builder --win portable --publish never -c.win.signAndEditExecutable=false '-c.artifactName=Quick-Assist-${version}-Windows.${ext}'
@@ -26,4 +28,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload v0.1.0 "dist/Quick-Assist-0.1.0-Windows.exe" --clobber --repo "${{ github.repository }}"
+        run: gh release upload v0.2.0 "dist/Quick-Assist-0.2.0-Windows.exe" --clobber --repo "${{ github.repository }}"

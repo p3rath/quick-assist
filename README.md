@@ -1,44 +1,57 @@
-# Quick Assist — Windows starter
+# Quick Assist for Windows
 
-A small always-on-top assistant for short general answers, code, voice questions, and screenshots. This is a first working source build, not a measured replacement for paid Cluely.
+A small floating assistant for concise answers, code, screenshots, and voice. Version 0.2 adds native Gemini support and Windows window/privacy controls.
 
-## Portable Windows build
+## Download
 
-For a single-file app, download **Quick-Assist-0.1.0-Windows.exe** from the [v0.1.0 release](https://github.com/p3rath/quick-assist/releases/tag/v0.1.0) and double-click it. No installation or manual extraction is needed. The portable launcher unpacks its runtime into a temporary folder when started. Your encrypted key and settings stay in the application's user-data folder.
+Download **Quick-Assist-0.2.0-Windows.exe** from the [v0.2.0 release](https://github.com/p3rath/quick-assist/releases/tag/v0.2.0). Close the previous version before running the new file. It is a single portable executable: no installer or manual extraction. Its runtime unpacks to a temporary folder at launch. Settings and encrypted API keys live in your Windows user-data folder, so they persist between versions. The app is unsigned.
 
-Download the Windows ZIP from the [v0.1.0 preview release](https://github.com/p3rath/quick-assist/releases/tag/v0.1.0). No Node.js installation is required for the portable build.
+## Gemini setup
 
-Extract the entire `Quick Assist-0.1.0-win.zip` archive, then double-click `Quick Assist.exe`. Keep its adjacent files and folders together. The build is unsigned and has not been run on a Windows machine.
+1. Open Settings and select **Google Gemini**.
+2. Paste your Gemini API key. The native endpoint is configured automatically.
+3. Click **Load models** and select a model returned for your key.
+4. Click **Test connection**, then **Save settings**.
 
-## Run from source on Windows
+Use the exact model ID, such as `gemini-3.8-flash`, rather than a display name like `gemini 3.8 Flash`. The model picker avoids manual spelling errors. Availability depends on your account. Native Gemini handles text, images, and voice transcription; no OpenAI key is needed for Gemini. Transcription uses your selected model, so choose a model supporting audio input. Quota, billing, geographic restrictions, and model access remain provider-controlled. The app displays provider error details, with keys redacted.
 
-Install Node.js 22 LTS, extract this folder, then open PowerShell here:
+Existing settings pointing at Google's OpenAI-compatible endpoint migrate to native Gemini automatically. Invalid display names prompt you to select and test a valid model. API keys are stored separately by provider and encrypted with Windows DPAPI through Electron safeStorage.
+
+For OpenAI or compatible providers, select that provider and enter its key, HTTPS base endpoint, exact chat/vision model, and transcription model. Compatible providers must implement streaming chat completions, vision input, model listing, and audio transcription for every feature to work. Test connection sends a short real prompt, so normal provider usage charges/quota apply.
+
+## Window controls
+
+- **Exclude window from screen capture** is enabled by default before the window first appears. It uses Electron's Windows `SetWindowDisplayAffinity` / `WDA_EXCLUDEFROMCAPTURE` support. All settings and screen-choice dialogs stay inside the same protected window.
+- **Opacity** ranges from 35% to 100% and applies live to the whole window, including dialogs. Changes persist immediately.
+- **Hide from taskbar** optionally removes the taskbar entry. Use the show shortcut to recover the window.
+- **Ctrl+Shift+Space:** hide/show.
+- **Ctrl+Shift+I:** toggle click-through; use it again to regain interaction. Showing the window also clears click-through.
+- **Ctrl+Shift+S:** attach a display screenshot.
+- Drag the header to move the app. The minus button hides it; × quits.
+
+Capture protection is an operating-system feature, not a guarantee against every capture method. On Windows 10 version 2004 or newer, supported capture APIs exclude the window; older Windows versions can show a black rectangle. Check your actual meeting/recording preview before relying on it. See [Electron's capture-protection documentation](https://www.electronjs.org/docs/latest/api/browser-window#winsetcontentprotectionenable-macos-windows). Linux has no equivalent protection through Electron.
+
+## Asking questions
+
+Type and press Enter to ask; Shift+Enter inserts a newline. Voice records your microphone until Finish (60-second maximum), transcribes, then asks. Screen attaches a whole display screenshot; multiple monitors get a chooser. Explain more expands the last answer. Stop cancels generation/transcription. New chat clears in-memory context.
+
+Microphone audio, prompts, recent conversation, and attached screenshots go to your chosen provider. There is no background listening or screen monitoring. Conversation stays in memory, limited to five recent exchanges, and screenshots are attached for the current turn only. Follow-up image questions require reattaching the image. Screen captures are downsized to at most 1600×1000.
+
+Answers stream as they arrive. The UI measures first-text and completion time; voice additionally includes transcription time. Voice uses stop-then-transcribe rather than realtime transcription. Speed is not yet benchmarked against paid Cluely.
+
+## Run from source
+
+Install Node.js 22, open PowerShell in the source folder, and run:
 
 ```powershell
 npm ci
 npm start
 ```
 
-On first launch, enter your OpenAI API key in Settings. API usage requires separate provider billing; a ChatGPT subscription does not include API usage. Defaults: `gpt-4.1-mini` for text/images and `gpt-4o-mini-transcribe` for voice. Change these to models available to your account. Other OpenAI-compatible endpoints must support chat-completion streaming, vision input, and audio transcription to support all features.
+`npm test` runs stream, provider-contract, model-list, migration, and window-setting tests. On Windows, `node scripts/run-windows-smoke.cjs` launches the real Electron app with an isolated temporary profile to check capture-protection state, opacity, encrypted key persistence, preload/IPC, and shortcuts. It sends no real provider requests. The GitHub Actions workflow builds and publishes the portable EXE after these checks.
 
-Type and press Enter to ask; Shift+Enter inserts a newline. Voice records the microphone until Finish, then transcribes and asks automatically. Screen attaches a display screenshot for your next question; multiple monitors get a chooser. Explain more expands the last answer. New chat clears in-memory conversation.
+The tests do not establish exclusion in every conferencing app or validate a user's live API key. Model and browser UI tests use simulated providers; the built-in Test connection checks your real account locally.
 
-- Ctrl+Shift+Space: show/hide the assistant.
-- Ctrl+Shift+S: capture a display. This shortcut may conflict with other apps.
-- Stop: cancels transcription or generation.
+## API references
 
-## Build a Windows installer
-
-On Windows, run `npm run dist:win`. The installer goes into `dist/`. This project has no signing certificate, so resulting installers are unsigned.
-
-## Data and speed
-
-API keys use Electron safeStorage (Windows DPAPI), saved in the application's user-data directory. The renderer cannot read the key. Conversation is kept in memory and limited to five recent exchanges. Images are sent for the current turn only; later image questions require attaching the screenshot again. Microphone audio, prompts, recent conversation, and attached screenshots are sent to your configured provider. There is no automatic listening, system-audio recording, or background screen monitoring.
-
-The UI reports request-to-first-text and request-to-completion. Voice additionally reports stop-recording-to-completion, including transcription. Voice uses stop-then-transcribe, not realtime speech streaming; this adds latency. No live provider benchmark has been run, and speed depends on model, provider, connection, and prompt. Brief answers are prompted rather than guaranteed to have an exact sentence count.
-
-This version captures a whole display, downsized to at most 1600×1000. Region selection, formatted Markdown/code rendering, realtime transcription, and conversation export are future work. Screenshots exclude the assistant by temporarily hiding it. Platform capture exclusion/stealth is not implemented.
-
-## Validation
-
-`npm test` exercises stream chunk boundaries, UTF-8 handling, provider errors, and bounded screenshot context. Live provider requests require your API key. Windows microphone, global shortcuts, secure storage, and installer behavior must be checked on Windows.
+Native Gemini follows Google's [content-generation API](https://ai.google.dev/api/generate-content) and [audio input documentation](https://ai.google.dev/gemini-api/docs/audio).

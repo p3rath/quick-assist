@@ -1,1 +1,38 @@
-{"name":"quick-assist","version":"0.1.0","description":"Concise voice and screen desktop assistant","main":"main.cjs","author":"Quick Assist","license":"MIT","scripts":{"start":"electron .","test":"node --test","dist:win":"electron-builder --win nsis"},"devDependencies":{"electron":"^39.0.0","electron-builder":"^26.0.12"},"build":{"appId":"com.quickassist.desktop","productName":"Quick Assist","files":["main.cjs","preload.cjs","core.cjs","index.html","renderer.js","style.css"],"win":{"target":"nsis"},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true}}}
+{
+  "name": "quick-assist",
+  "version": "0.2.0",
+  "description": "Concise voice and screen desktop assistant",
+  "main": "main.cjs",
+  "author": "Quick Assist",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist:win": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.quickassist.desktop",
+    "productName": "Quick Assist",
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "core.cjs",
+      "index.html",
+      "renderer.js",
+      "style.css",
+      "providers.cjs",
+      "window-settings.cjs"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

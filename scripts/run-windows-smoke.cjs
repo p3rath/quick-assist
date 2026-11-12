@@ -1,0 +1,1 @@
+const {spawnSync}=require('node:child_process');const path=require('node:path');const result=spawnSync(require('electron'),[path.join(__dirname,'windows-smoke.cjs')],{stdio:'inherit',timeout:45000});if(result.error)console.error(result.error);process.exit(result.status??1);
