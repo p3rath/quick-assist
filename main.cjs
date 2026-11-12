@@ -13,11 +13,15 @@ app.whenReady().then(()=>{
   try{settings=JSON.parse(fs.readFileSync(configPath(),'utf8'));}catch{}
   const oldProvider=providers.providerOf(settings);if(settings.encryptedKey){settings.encryptedKeys={...settings.encryptedKeys,[oldProvider]:settings.encryptedKey};delete settings.encryptedKey;}
   settings=providers.normalize(Object.keys(settings).length?settings:{provider:'gemini',model:'gemini-3.8-flash'});
-  win=new BrowserWindow({width:510,height:710,minWidth:400,minHeight:500,show:false,frame:false,alwaysOnTop:true,backgroundColor:'#10131a',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  win=new BrowserWindow({width:510,height:710,minWidth:400,minHeight:500,show:false,opacity:0,frame:false,alwaysOnTop:true,backgroundColor:'#10131a',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  // Windows initializes its screenshot state when the native window is shown.
+  // Show an empty, zero-opacity window first; protect it before loading content.
+  win.show();
   applyAppearance(win,settings,process.platform);
+  win.on('show',()=>applyAppearance(win,settings,process.platform));
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());
   session.defaultSession.setPermissionRequestHandler((contents,permission,callback)=>callback(contents===win.webContents&&permission==='media'));
-  win.once('ready-to-show',()=>win.show());win.loadFile(path.join(__dirname,'index.html'));
+  win.loadFile(path.join(__dirname,'index.html'));
   globalShortcut.register('CommandOrControl+Shift+Space',()=>win.isVisible()?win.hide():show());
   globalShortcut.register('CommandOrControl+Shift+S',()=>{show();emit('capture-shortcut');});
   globalShortcut.register('CommandOrControl+Shift+I',()=>{clickThrough=!clickThrough;win.setIgnoreMouseEvents(clickThrough,{forward:true});if(!clickThrough)show();emit('interaction',clickThrough);});

@@ -18,7 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Verify native Windows window controls and encrypted settings
+      - name: Verify native Windows capture protection, opacity, and encrypted settings
         run: node scripts/run-windows-smoke.cjs
       - name: Package single Windows portable executable
         shell: bash

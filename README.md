@@ -21,7 +21,7 @@ For OpenAI or compatible providers, select that provider and enter its key, HTTP
 
 ## Window controls
 
-- **Exclude window from screen capture** is enabled by default before the window first appears. It uses Electron's Windows `SetWindowDisplayAffinity` / `WDA_EXCLUDEFROMCAPTURE` support. All settings and screen-choice dialogs stay inside the same protected window.
+- **Exclude window from screen capture** is enabled by default before the app content loads. It uses Electron's Windows `SetWindowDisplayAffinity` / `WDA_EXCLUDEFROMCAPTURE` support. All settings and screen-choice dialogs stay inside the same protected window.
 - **Opacity** ranges from 35% to 100% and applies live to the whole window, including dialogs. Changes persist immediately.
 - **Hide from taskbar** optionally removes the taskbar entry. Use the show shortcut to recover the window.
 - **Ctrl+Shift+Space:** hide/show.
