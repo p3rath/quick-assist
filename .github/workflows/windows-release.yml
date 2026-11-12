@@ -17,13 +17,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Package Windows portable ZIP
+      - name: Package single Windows portable executable
         shell: bash
-        run: npx electron-builder --win zip --publish never -c.win.signAndEditExecutable=false
+        run: npx electron-builder --win portable --publish never -c.win.signAndEditExecutable=false '-c.artifactName=Quick-Assist-${version}-Windows.${ext}'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - name: Attach Windows ZIP to preview release
+      - name: Attach portable executable to preview release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload v0.1.0 "dist/Quick Assist-0.1.0-win.zip" --clobber --repo "${{ github.repository }}"
+        run: gh release upload v0.1.0 "dist/Quick-Assist-0.1.0-Windows.exe" --clobber --repo "${{ github.repository }}"
