@@ -18,7 +18,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Package Windows portable ZIP
-        run: npx electron-builder --win zip -c.win.signAndEditExecutable=false
+        shell: bash
+        run: npx electron-builder --win zip --publish never -c.win.signAndEditExecutable=false
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Attach Windows ZIP to preview release
