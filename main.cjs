@@ -17,7 +17,7 @@ app.whenReady().then(()=>{
   applyAppearance(win,settings,process.platform);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());
   session.defaultSession.setPermissionRequestHandler((contents,permission,callback)=>callback(contents===win.webContents&&permission==='media'));
-  win.once('ready-to-show',()=>win.show());win.loadFile('index.html');
+  win.once('ready-to-show',()=>win.show());win.loadFile(path.join(__dirname,'index.html'));
   globalShortcut.register('CommandOrControl+Shift+Space',()=>win.isVisible()?win.hide():show());
   globalShortcut.register('CommandOrControl+Shift+S',()=>{show();emit('capture-shortcut');});
   globalShortcut.register('CommandOrControl+Shift+I',()=>{clickThrough=!clickThrough;win.setIgnoreMouseEvents(clickThrough,{forward:true});if(!clickThrough)show();emit('interaction',clickThrough);});
