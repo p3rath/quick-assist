@@ -1,6 +1,6 @@
 {
   "name": "opencluely",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "OpenCluely with general-purpose screenshot, chat, and voice assistance",
   "main": "main.js",
   "scripts": {
@@ -167,7 +167,10 @@
       "perMachine": false,
       "include": "scripts/post-install-nsis.nsh",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "OpenCluely-Setup-${version}.${ext}"
+      "artifactName": "OpenCluely-General-Setup-${version}.${ext}",
+      "shortcutName": "OpenCluely General",
+      "uninstallDisplayName": "OpenCluely General",
+      "runAfterFinish": false
     },
     "dmg": {
       "title": "OpenCluely Interview Assistant",

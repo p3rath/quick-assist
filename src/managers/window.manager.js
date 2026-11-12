@@ -46,7 +46,7 @@ class WindowManager {
       },
       chat: {
         width: 500,
-        height: 700,
+        height: 350,
         file: 'chat.html',
         title: 'Chat'
       },
@@ -393,7 +393,7 @@ class WindowManager {
       browserWindowOptions = {
         ...baseOptions,
         minWidth: config.get('window.minWidth'),
-        minHeight: config.get('window.minHeight'),
+        minHeight: 220,
         maxWidth: config.get('window.maxWidth'),
         maxHeight: config.get('window.maxHeight'),
         frame: false,
@@ -989,18 +989,14 @@ class WindowManager {
       return;
     }
 
-    this.windows.forEach((window, type) => {
-      if (type !== 'llmResponse') { // Don't show LLM response unless it has content
-        this.showOnCurrentDesktop(window);
-      }
-    });
-    
-    this.isVisible = true;
-    const activeWindow = this.windows.get(this.activeWindow);
-    if (activeWindow) {
-      activeWindow.focus();
+    // Visibility is for the working UI, never Settings or onboarding dialogs.
+    for (const type of ['main','chat']) {
+      const window = this.windows.get(type);
+      if (window && !window.isDestroyed()) this.showOnCurrentDesktop(window);
     }
-    
+    this.isVisible = true;
+    this.windows.get('chat')?.focus();
+
     logger.info('All windows shown on current desktop', { 
       activeWindow: this.activeWindow,
       windowCount: this.windows.size 
@@ -1008,12 +1004,10 @@ class WindowManager {
   }
 
   hideAllWindows() {
-    this.windows.forEach((window, type) => {
-      if (type !== 'llmResponse') {
-        window.hide();
-      }
+    this.windows.forEach(window => {
+      if (!window.isDestroyed()) window.hide();
     });
-    
+
     this.isVisible = false;
     logger.info('All windows hidden');
   }
@@ -1023,7 +1017,8 @@ class WindowManager {
       return this.isVisible;
     }
 
-    if (this.isVisible) {
+    const workingVisible=['main','chat'].some(type=>this.windows.get(type)?.isVisible());
+    if (workingVisible) {
       this.hideAllWindows();
     } else {
       this.showAllWindows();

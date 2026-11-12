@@ -1072,7 +1072,7 @@ class ApplicationController {
     }
 
     const startTime = Date.now();
-    let messageId;
+    let messageId,firstTextMs;
 
     try {
       windowManager.hideLLMResponse();
@@ -1107,13 +1107,15 @@ class ApplicationController {
         sessionHistory.recent,
         needsProgrammingLanguage ? this.codingLanguage : null,
         (delta) => {
+          if(firstTextMs===undefined)firstTextMs=Date.now()-startTime;
           this.sendToChatWindow("transcription-llm-response-chunk", {
             messageId,
             delta
           });
         }
       );
-      llmResult.metadata = { ...llmResult.metadata, messageId };
+      llmResult.metadata = { ...llmResult.metadata, messageId,firstTextMs,captureMs:capture.metadata?.processingTime,totalMs:Date.now()-startTime,imageBytes:capture.imageBuffer.length };
+      logger.logPerformance("Screenshot to chat",startTime,{firstTextMs,captureMs:capture.metadata?.processingTime,imageBytes:capture.imageBuffer.length});
 
       sessionManager.addModelResponse(llmResult.response, {
         skill: this.activeSkill,
