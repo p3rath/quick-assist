@@ -36,7 +36,10 @@ class CaptureService {
 
       // Always capture the entire display; no crop or adjustable selection frame.
       const finalImage = image;
-      const buffer = finalImage.toJPEG(88);
+      const png = finalImage.toPNG();
+      const jpeg = finalImage.toJPEG(88);
+      const useJPEG = jpeg.length < png.length;
+      const buffer = useJPEG ? jpeg : png;
       logger.logPerformance('Screenshot capture', startTime, {
         bytes: buffer.length,
         dimensions: finalImage.getSize()
@@ -44,7 +47,7 @@ class CaptureService {
 
       return {
         imageBuffer: buffer,
-        mimeType: 'image/jpeg',
+        mimeType: useJPEG ? 'image/jpeg' : 'image/png',
         metadata: {
           timestamp: new Date().toISOString(),
           source: metadata,
