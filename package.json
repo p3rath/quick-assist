@@ -1,6 +1,6 @@
 {
   "name": "opencluely",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenCluely with general-purpose screenshot, chat, and voice assistance",
   "main": "main.js",
   "scripts": {

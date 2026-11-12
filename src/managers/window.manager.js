@@ -32,13 +32,13 @@ class WindowManager {
     this.focusLocked = false; // Prevent focus loops
     
     // Window binding properties
-    this.bindWindows = true; // Enable window binding by default
+    this.bindWindows = false; // Toolbar and chat move independently by default.
     this.windowGap = 10; // Small gap between windows
     this.boundWindowsPosition = { x: 0, y: 0 }; // Track position of bound windows
     
     this.windowConfigs = {
       main: {
-        width: 520,
+        width: 640,
         height: 35,
         useContentSize: true,
         file: 'index.html',
@@ -725,102 +725,33 @@ class WindowManager {
     });
   }
 
-  // New method to position bound windows (vertical column layout) - Always at top
+  // Optional binding follows the toolbar position selected by the user.
   positionBoundWindows() {
-    const mainWindow = this.windows.get('main');
-    const llmWindow = this.windows.get('llmResponse');
-    
-    if (!mainWindow || !llmWindow) return;
-    
-    const display = this.currentDisplay || screen.getPrimaryDisplay();
-    const { x: displayX, y: displayY, width: screenWidth, height: screenHeight } = display.workArea;
-    
-    const [mainWidth, mainHeight] = mainWindow.getSize();
-    const [llmWidth, llmHeight] = llmWindow.getSize();
-    
-    // Always position at the top of the screen with small margin
-    const topMargin = 20;
-    const startY = displayY + topMargin;
-    
-    // Use the wider window for horizontal centering
-    const maxWidth = Math.max(mainWidth, llmWidth);
-    
-    // Center horizontally on the display
-    const xPosition = displayX + Math.round((screenWidth - maxWidth) / 2);
-    
-    // Ensure windows don't go outside screen bounds horizontally
-    const adjustedMainX = Math.max(displayX, Math.min(displayX + screenWidth - mainWidth, xPosition));
-    const adjustedLlmX = Math.max(displayX, Math.min(displayX + screenWidth - llmWidth, xPosition));
-    
-    // Position main window (top)
-    const mainX = adjustedMainX;
-    const mainY = startY;
-    mainWindow.setPosition(mainX, mainY);
-    
-    // Position LLM response window below with gap
-    const llmX = adjustedLlmX;
-    const llmY = startY + mainHeight + this.windowGap;
-    llmWindow.setPosition(llmX, llmY);
-    
-    // Update stored position (use main window position as reference)
-    this.boundWindowsPosition = { x: adjustedMainX, y: startY };
-    
-    logger.debug('Positioned bound windows at top (column layout)', {
-      mainPosition: `${mainX},${mainY}`,
-      llmPosition: `${llmX},${llmY}`,
-      gap: this.windowGap,
-      topMargin: topMargin,
-      display: display.id
-    });
+    if (!this.bindWindows) return;
+    const main = this.windows.get('main');
+    const answer = this.windows.get('llmResponse');
+    if (!main || !answer) return;
+    const bounds = main.getBounds();
+    const area = screen.getDisplayMatching(bounds).workArea;
+    const [width,height] = answer.getSize();
+    // Follow the toolbar's chosen position instead of resetting it to the top.
+    const x = Math.max(area.x, Math.min(area.x + Math.max(0,area.width-width), bounds.x));
+    const below = bounds.y + bounds.height + this.windowGap;
+    const y = below+height <= area.y+area.height ? below : Math.max(area.y,bounds.y-this.windowGap-height);
+    answer.setPosition(Math.round(x),Math.round(y));
+    this.boundWindowsPosition = {x:bounds.x,y:bounds.y};
   }
 
-  // New method to move bound windows (column layout) - Maintains top positioning preference
   moveBoundWindows(deltaX, deltaY) {
-    if (!this.bindWindows) return;
-    
-    const mainWindow = this.windows.get('main');
-    const llmWindow = this.windows.get('llmResponse');
-    
-    if (!mainWindow || !llmWindow) return;
-    
-    const display = this.currentDisplay || screen.getPrimaryDisplay();
-    const { x: displayX, y: displayY, width: screenWidth, height: screenHeight } = display.workArea;
-    
-    // Get current positions and sizes
-    const [mainX, mainY] = mainWindow.getPosition();
-    const [llmX, llmY] = llmWindow.getPosition();
-    const [mainWidth, mainHeight] = mainWindow.getSize();
-    const [llmWidth, llmHeight] = llmWindow.getSize();
-    
-    // Calculate total height for bounds checking
-    const totalHeight = mainHeight + this.windowGap + llmHeight;
-    const topMargin = 20;
-    const minY = displayY + topMargin;
-    
-    // Calculate new positions with bounds checking
-    const newMainX = Math.max(displayX, Math.min(displayX + screenWidth - mainWidth, mainX + deltaX));
-    // Ensure we don't go above the top margin or below screen bounds
-    const newMainY = Math.max(minY, Math.min(displayY + screenHeight - totalHeight, mainY + deltaY));
-    
-    // LLM window follows the same horizontal movement but maintains vertical relationship
-    const newLlmX = Math.max(displayX, Math.min(displayX + screenWidth - llmWidth, llmX + deltaX));
-    const newLlmY = newMainY + mainHeight + this.windowGap;
-    
-    // Move both windows
-    mainWindow.setPosition(newMainX, newMainY);
-    llmWindow.setPosition(newLlmX, newLlmY);
-    
-    // Update stored position (use main window as reference)
-    this.boundWindowsPosition.x = newMainX;
-    this.boundWindowsPosition.y = newMainY;
-    
-    logger.debug('Moved bound windows (maintaining top preference)', {
-      delta: `${deltaX},${deltaY}`,
-      newMainPosition: `${newMainX},${newMainY}`,
-      newLlmPosition: `${newLlmX},${newLlmY}`,
-      topMargin: topMargin,
-      totalHeight: totalHeight
-    });
+    const main = this.windows.get('main');
+    if (!main || main.isDestroyed()) return;
+    const bounds = main.getBounds();
+    const proposed = {...bounds,x:bounds.x+deltaX,y:bounds.y+deltaY};
+    const area = screen.getDisplayMatching(proposed).workArea;
+    const x = Math.max(area.x,Math.min(area.x+Math.max(0,area.width-bounds.width),proposed.x));
+    const y = Math.max(area.y,Math.min(area.y+Math.max(0,area.height-bounds.height),proposed.y));
+    main.setPosition(Math.round(x),Math.round(y));
+    if (this.bindWindows) this.positionBoundWindows();
   }
 
   showOnCurrentDesktop(win) {
@@ -1594,7 +1525,7 @@ class WindowManager {
     
     if (!this.currentDisplay || activeDisplay.id !== this.currentDisplay.id) {
       this.currentDisplay = activeDisplay;
-      this.moveWindowsToActiveScreen();
+      // Pointer/hover changes must not move windows the user has positioned.
       
       logger.debug('Active screen changed', {
         displayId: activeDisplay.id,

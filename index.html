@@ -27,7 +27,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 16px;
+        gap: 8px;
         padding: 0 12px;
         color: rgba(255, 255, 255, 0.9);
         font-size: 11px;
@@ -40,6 +40,8 @@
   /* Allow horizontal collapse to approximately one icon's width */
   min-width: 60px;
       }
+
+      .drag-handle { -webkit-app-region: drag; cursor: grab; flex: 0 0 18px; text-align: center; font-size: 20px; user-select: none; }
 
       .command-item {
         display: flex;
@@ -353,6 +355,7 @@
   </head>
   <body>
     <div class="command-tab">
+      <div class="drag-handle" title="Drag to move toolbar" aria-label="Drag to move toolbar">⠿</div>
       <div class="command-item">
         <i class="fas fa-camera"></i>
         <span>⌘⇧S</span>

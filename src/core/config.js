@@ -12,7 +12,7 @@ class ConfigManager {
     this.config = {
       app: {
         name: 'OpenCluely',
-        version: '1.0.0',
+        version: '1.0.2',
         processTitle: 'OpenCluely',
         dataDir: this.appDataDir,
         isDevelopment: this.env === 'development',

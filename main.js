@@ -1072,28 +1072,31 @@ class ApplicationController {
     }
 
     const startTime = Date.now();
+    let messageId;
 
     try {
-      windowManager.showLLMLoading();
+      windowManager.hideLLMResponse();
 
-  const capture = await captureService.captureAndProcess();
+      const capture = await captureService.captureAndProcess();
+      windowManager.showChatWindow();
 
       if (!capture.imageBuffer || !capture.imageBuffer.length) {
         windowManager.hideLLMResponse();
-        this.broadcastOCRError("Failed to capture screenshot image");
+        this.sendToChatWindow("ocr-error", {error:"Failed to capture screenshot image"});
         return;
       }
 
-      // Use image directly with LLM and active skill; do not send chat messages here
+      // Send the full screenshot to the model and stream its answer only to chat.
       const sessionHistory = sessionManager.getOptimizedHistory();
 
       const skillsRequiringProgrammingLanguage = ['general'];
       const needsProgrammingLanguage = skillsRequiringProgrammingLanguage.includes(this.activeSkill);
 
       this._responseSeq = (this._responseSeq || 0) + 1;
-      const messageId = `img-${Date.now()}-${this._responseSeq}`;
-      windowManager.broadcastToAllWindows("transcription-llm-response-start", {
+      messageId = `img-${Date.now()}-${this._responseSeq}`;
+      this.sendToChatWindow("transcription-llm-response-start", {
         messageId,
+        isImageAnalysis: true,
         skill: this.activeSkill
       });
 
@@ -1104,7 +1107,7 @@ class ApplicationController {
         sessionHistory.recent,
         needsProgrammingLanguage ? this.codingLanguage : null,
         (delta) => {
-          windowManager.broadcastToAllWindows("transcription-llm-response-chunk", {
+          this.sendToChatWindow("transcription-llm-response-chunk", {
             messageId,
             delta
           });
@@ -1119,14 +1122,8 @@ class ApplicationController {
         isImageAnalysis: true
       });
 
-      this.broadcastTranscriptionLLMResponse(llmResult);
+      this.sendChatLLMResponse(llmResult);
 
-      windowManager.showLLMResponse(llmResult.response, {
-        skill: this.activeSkill,
-        processingTime: llmResult.metadata.processingTime,
-        usedFallback: llmResult.metadata.usedFallback,
-        isImageAnalysis: true
-      });
     } catch (error) {
       logger.error("Screenshot OCR process failed", {
         error: error.message,
@@ -1134,7 +1131,8 @@ class ApplicationController {
       });
 
       windowManager.hideLLMResponse();
-      this.broadcastOCRError(error.message);
+      windowManager.showChatWindow();
+      this.sendToChatWindow("ocr-error", {error:error.message,messageId});
       
       sessionManager.addConversationEvent({
         role: 'system',
@@ -1148,6 +1146,7 @@ class ApplicationController {
   }
 
   async processWithLLM(text, sessionHistory) {
+    let messageId;
     try {
       // Add user input to session memory
       sessionManager.addUserInput(text, 'llm_input');
@@ -1157,12 +1156,12 @@ class ApplicationController {
       const needsProgrammingLanguage = skillsRequiringProgrammingLanguage.includes(this.activeSkill);
 
       this._responseSeq = (this._responseSeq || 0) + 1;
-      const messageId = `chat-${Date.now()}-${this._responseSeq}`;
-      windowManager.broadcastToAllWindows("transcription-llm-response-start", {
+      messageId = `chat-${Date.now()}-${this._responseSeq}`;
+      this.sendToChatWindow("transcription-llm-response-start", {
         messageId,
         skill: this.activeSkill
       });
-      windowManager.showLLMLoading();
+      windowManager.hideLLMResponse();
 
       const llmResult = await llmService.processTextWithSkillStream(
         text,
@@ -1170,7 +1169,7 @@ class ApplicationController {
         sessionHistory.recent,
         needsProgrammingLanguage ? this.codingLanguage : null,
         (delta) => {
-          windowManager.broadcastToAllWindows("transcription-llm-response-chunk", {
+          this.sendToChatWindow("transcription-llm-response-chunk", {
             messageId,
             delta
           });
@@ -1193,13 +1192,8 @@ class ApplicationController {
         usedFallback: llmResult.metadata.usedFallback,
       });
 
-      this.broadcastTranscriptionLLMResponse(llmResult);
+      this.sendChatLLMResponse(llmResult);
 
-      windowManager.showLLMResponse(llmResult.response, {
-        skill: this.activeSkill,
-        processingTime: llmResult.metadata.processingTime,
-        usedFallback: llmResult.metadata.usedFallback,
-      });
     } catch (error) {
       logger.error("LLM processing failed", {
         error: error.message,
@@ -1217,7 +1211,7 @@ class ApplicationController {
         }
       });
 
-      this.broadcastLLMError(error.message);
+      this.sendToChatWindow("llm-error", {error:error.message,messageId});
     }
   }
 
@@ -1471,7 +1465,7 @@ class ApplicationController {
     });
   }
 
-  broadcastTranscriptionLLMResponse(llmResult) {
+  sendChatLLMResponse(llmResult) {
     const broadcastData = {
       response: llmResult.response,
       metadata: llmResult.metadata,
@@ -1480,13 +1474,13 @@ class ApplicationController {
       isTranscriptionResponse: true
     };
 
-    logger.info("Broadcasting transcription LLM response to all windows", {
+    logger.info("Sending answer to chat", {
       responseLength: llmResult.response.length,
       skill: this.activeSkill,
       responsePreview: llmResult.response.substring(0, 100) + "..."
     });
 
-    windowManager.broadcastToAllWindows("transcription-llm-response", broadcastData);
+    this.sendToChatWindow("transcription-llm-response", broadcastData);
   }
 
   sendToChatWindow(channel, data) {

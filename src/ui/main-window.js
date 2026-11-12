@@ -381,23 +381,7 @@ class MainWindowUI {
                 this.toggleShortcutsPopover();
             });
 
-            // Hover to show
-            this.infoButton.addEventListener('mouseenter', () => {
-                if (!this.isInteractive) return;
-                this.showShortcutsPopover();
-            });
-            // Queue hide when leaving the button
-            this.infoButton.addEventListener('mouseleave', () => this.queueHideShortcutsPopover());
-
-            // Keep open when hovering popover
-            this.shortcutsPopover.addEventListener('mouseenter', () => {
-                if (this._popoverHideTimeout) {
-                    clearTimeout(this._popoverHideTimeout);
-                    this._popoverHideTimeout = null;
-                }
-            });
-            // Hide after a small delay when leaving popover
-            this.shortcutsPopover.addEventListener('mouseleave', () => this.queueHideShortcutsPopover());
+            // Open on click only: hovering must not expand or reposition the toolbar.
 
             // Close on outside click
             document.addEventListener('click', (e) => {

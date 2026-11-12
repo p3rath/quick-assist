@@ -1149,6 +1149,40 @@
         blocks.forEach(b => addCodeSnippet(b.language, b.code));
       }
 
+      // Screenshot and chat answers stream here, without a second answer window.
+      const liveAnswers = new Map();
+      function beginAnswer(data) {
+        if (!data?.messageId || liveAnswers.has(data.messageId)) return;
+        hideThinkingIndicator();
+        const bubble = document.createElement('div');
+        bubble.className = 'message assistant streaming';
+        bubble.dataset.streamId = data.messageId;
+        const text = document.createElement('div');text.className='message-text';
+        text.textContent = data.isImageAnalysis ? 'Reading your screen…' : 'Thinking…';
+        bubble.appendChild(text);chatMessages.appendChild(bubble);
+        liveAnswers.set(data.messageId,{bubble,text,buffer:''});
+        chatMessages.scrollTop=chatMessages.scrollHeight;
+      }
+      function appendAnswer(data) {
+        beginAnswer(data);const live=liveAnswers.get(data.messageId);if(!live)return;
+        live.buffer+=data.delta||'';live.text.textContent=live.buffer;
+        chatMessages.scrollTop=chatMessages.scrollHeight;
+      }
+      function finishAnswer(data) {
+        if(!data?.response)return;
+        const live=liveAnswers.get(data.messageId);
+        if(live){live.bubble.remove();liveAnswers.delete(data.messageId);recentResponseHashes.delete(hashString(data.response.trim()));}
+        hideThinkingIndicator();renderAssistantResponse(data.response);
+      }
+      function failAnswer(data) {
+        const live=liveAnswers.get(data?.messageId);if(live){live.bubble.remove();liveAnswers.delete(data.messageId);}
+        hideThinkingIndicator();addMessage(data?.error||'Unable to answer. Please try again.','error');
+      }
+      whysperAPI?.onTranscriptionLlmResponseStart?.((_event,data)=>beginAnswer(data));
+      whysperAPI?.onTranscriptionLlmResponseChunk?.((_event,data)=>appendAnswer(data));
+      whysperAPI?.onOcrError?.((_event,data)=>failAnswer(data));
+      whysperAPI?.onLlmError?.((_event,data)=>failAnswer(data));
+
       // Basic IPC Event Listeners - simplified
       
       // Listen for transcription events
@@ -1205,7 +1239,7 @@
         whysperAPI.onTranscriptionLlmResponse((event, data) => {
           if (data && data.response) {
             try { hideThinkingIndicator(); } catch (_) {}
-            renderAssistantResponse(data.response);
+            finishAnswer(data);
           }
         });
       }

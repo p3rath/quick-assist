@@ -25,7 +25,7 @@ class CaptureService {
 
   /**
    * Capture screenshot and return an image buffer.
-   * options: { displayId?: number, area?: { x, y, width, height } }
+   * options: { displayId?: number }; always the full display.
    */
   async captureAndProcess(options = {}) {
     if (this.isProcessing) throw new Error('Capture already in progress');
@@ -34,16 +34,8 @@ class CaptureService {
     try {
       const { image, metadata } = await this.captureScreenshot(options);
 
-      // Crop if area specified
-      let finalImage = image;
-      if (options.area && this._isValidArea(options.area)) {
-        try {
-          finalImage = image.crop(options.area);
-        } catch (e) {
-          logger.warn('Crop failed, returning full image', { error: e.message, area: options.area });
-        }
-      }
-
+      // Always capture the entire display; no crop or adjustable selection frame.
+      const finalImage = image;
       const buffer = finalImage.toPNG();
       logger.logPerformance('Screenshot capture', startTime, {
         bytes: buffer.length,
@@ -66,7 +58,10 @@ class CaptureService {
 
   async captureScreenshot(options = {}) {
     const targetDisplay = this._getTargetDisplay(options.displayId);
-    const { width, height } = targetDisplay.size || { width: 1920, height: 1080 };
+    const size = targetDisplay.size || targetDisplay.bounds;
+    const scale = targetDisplay.scaleFactor || 1;
+    const width = Math.round(size.width * scale);
+    const height = Math.round(size.height * scale);
 
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
@@ -77,16 +72,13 @@ class CaptureService {
       throw new Error('No screen sources available for capture');
     }
 
-    // Find source matching the target display by comparing sizes as heuristic
-    let source = sources[0];
-    const match = sources.find(s => {
-      const size = s.thumbnail.getSize();
-      return size.width === width && size.height === height;
-    });
-    if (match) source = match;
+    // Display IDs distinguish monitors with identical resolutions.
+    let source = sources.find(s => String(s.display_id) === String(targetDisplay.id));
+    if (!source && sources.length === 1 && screen.getAllDisplays().length === 1) source = sources[0];
+    if (!source) throw new Error('Could not identify the current monitor. Move the pointer to the screen you want and try again.');
 
     const image = source.thumbnail;
-    if (!image) throw new Error('Failed to capture screen thumbnail');
+    if (!image || image.isEmpty?.()) throw new Error('Failed to capture full screen image');
 
     logger.debug('Screenshot captured successfully', {
       sourceName: source.name,
@@ -107,16 +99,12 @@ class CaptureService {
   _getTargetDisplay(displayId) {
     const all = screen.getAllDisplays();
     if (!all || all.length === 0) return screen.getPrimaryDisplay();
-    if (displayId == null) return screen.getPrimaryDisplay();
+    if (displayId == null) return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const found = all.find(d => d.id === displayId);
-    return found || screen.getPrimaryDisplay();
+    if (!found) throw new Error('The requested monitor is no longer available.');
+    return found;
   }
 
-  _isValidArea(area) {
-    return area && Number.isFinite(area.x) && Number.isFinite(area.y) &&
-      Number.isFinite(area.width) && Number.isFinite(area.height) &&
-      area.width > 0 && area.height > 0;
-  }
 }
 
 module.exports = new CaptureService();

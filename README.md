@@ -4,7 +4,9 @@ This is a modification of [TechyCSR/OpenCluely](https://github.com/TechyCSR/Open
 
 The change is the AI behavior: **general questions and screenshots on any topic**, with concise answers. It reads and answers a visible question, explains an error, summarizes a document, or interprets a chart. Coding help remains available when relevant; it no longer forces every screenshot into a DSA problem or every code block into C++.
 
-Download the single Windows executable from [the General edition release](https://github.com/p3rath/quick-assist/releases/tag/opencluely-general-v1.0.1). Close older instances before opening it. Enter your Gemini key in the original Settings panel. Original local Whisper / Azure speech setup remains available; it has not been replaced with a different voice system.
+Download the single Windows executable from [the General edition release](https://github.com/p3rath/quick-assist/releases/tag/opencluely-general-v1.0.2). Close older instances before opening it. Enter your Gemini key in the original Settings panel. Original local Whisper / Azure speech setup remains available; it has not been replaced with a different voice system.
+
+Screenshots capture the full monitor under your pointer at native resolution, without a crop frame. Screenshot and typed answers appear only in chat and stream as they arrive. Drag the toolbar using the dotted handle; it moves independently of the chat, and the shortcuts popover opens on click rather than hover.
 
 Defaults are General mode and short answers (usually 1–3 sentences). The coding-language setting is a preference only when code is useful; a language requested by the user or visible in their code takes priority. Screenshots include recent conversation text for follow-ups. The default Gemini model is `gemini-3.8-flash`, with `gemini-2.5-flash` as a fallback.
 
