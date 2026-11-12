@@ -1611,6 +1611,7 @@ class ApplicationController {
     try {
       if(settings.aiProvider!==undefined){
         llmService.saveProviderConfig({provider:settings.aiProvider,endpoint:settings.aiEndpoint,model:settings.aiModel,key:settings.aiKey});
+        if(this.isFirstRun&&llmService.isInitialized){this.firstRunManager.markCompleted();this.isFirstRun=false;windowManager.showMainWindow().catch(error=>logger.warn('Could not show toolbar',{error:error.message}));}
       }
       // ── In-memory updates + window broadcasts ──
       if (settings.codingLanguage) {

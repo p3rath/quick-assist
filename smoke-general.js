@@ -1,7 +1,5 @@
 const {app,BrowserWindow,nativeImage}=require('electron');const path=require('node:path');const os=require('node:os');const assert=require('node:assert/strict');const {spawnSync}=require('node:child_process');
 app.setPath('userData',path.join(os.tmpdir(),'opencluely-general-smoke-'+process.pid));
-// Exercise the configured capture workflow, without a first-run wizard racing test shutdown.
-require('./src/core/first-run').prototype.needsOnboarding=()=>false;
 require('./main.js');
 const deadline=setTimeout(()=>{console.error('OpenCluely launch timed out');app.exit(1);},45000);
 app.whenReady().then(async()=>{

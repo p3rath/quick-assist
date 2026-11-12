@@ -2,7 +2,10 @@ $ErrorActionPreference = 'Stop'
 $qaInstaller = (Resolve-Path 'dist/OpenCluely-General-Setup-1.1.0.exe').Path
 $qaInstallDir = Join-Path $env:RUNNER_TEMP 'OpenCluely-General-Install'
 $qaResult = Start-Process -FilePath $qaInstaller -ArgumentList @('/S', "/D=$qaInstallDir") -Wait -PassThru
-if ($qaResult.ExitCode -ne 0) { throw "Installer failed: $($qaResult.ExitCode)" }
+if ($qaResult.ExitCode -ne 0) {
+  Get-WinEvent -FilterHashtable @{LogName='Application';Id=1000,1001;StartTime=(Get-Date).AddMinutes(-3)} -ErrorAction SilentlyContinue | Select-Object -First 4 -ExpandProperty Message | Write-Output
+  throw "Installer failed: $($qaResult.ExitCode)"
+}
 if (!(Test-Path (Join-Path $qaInstallDir 'OpenCluely.exe'))) { throw 'Installed application executable missing' }
 $qaEntry = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object { $_.DisplayName -eq 'OpenCluely General' }
 if (!$qaEntry) { throw 'Application missing from Windows Installed apps registry' }
