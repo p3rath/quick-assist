@@ -1160,22 +1160,28 @@
         const text = document.createElement('div');text.className='message-text';
         text.textContent = data.isImageAnalysis ? 'Reading your screen…' : 'Thinking…';
         bubble.appendChild(text);chatMessages.appendChild(bubble);
-        liveAnswers.set(data.messageId,{bubble,text,buffer:''});
+        const live={bubble,text,buffer:'',started:Date.now()};
+        live.timer=setInterval(()=>{
+          if(!bubble.isConnected){clearInterval(live.timer);liveAnswers.delete(data.messageId);return;}
+          const seconds=Math.floor((Date.now()-live.started)/1000);
+          if(!live.buffer)text.textContent=(seconds>=12?'Gemini is taking longer than usual… ':'Waiting for Gemini… ')+seconds+'s';
+        },1000);
+        liveAnswers.set(data.messageId,live);
         chatMessages.scrollTop=chatMessages.scrollHeight;
       }
       function appendAnswer(data) {
         beginAnswer(data);const live=liveAnswers.get(data.messageId);if(!live)return;
-        live.buffer+=data.delta||'';live.text.textContent=live.buffer;
+        clearInterval(live.timer);live.buffer+=data.delta||'';live.text.textContent=live.buffer;
         chatMessages.scrollTop=chatMessages.scrollHeight;
       }
       function finishAnswer(data) {
         if(!data?.response)return;
         const live=liveAnswers.get(data.messageId);
-        if(live){live.bubble.remove();liveAnswers.delete(data.messageId);recentResponseHashes.delete(hashString(data.response.trim()));}
+        if(live){clearInterval(live.timer);live.bubble.remove();liveAnswers.delete(data.messageId);recentResponseHashes.delete(hashString(data.response.trim()));}
         hideThinkingIndicator();renderAssistantResponse(data.response);
       }
       function failAnswer(data) {
-        const live=liveAnswers.get(data?.messageId);if(live){live.bubble.remove();liveAnswers.delete(data.messageId);}
+        const live=liveAnswers.get(data?.messageId);if(live){clearInterval(live.timer);live.bubble.remove();liveAnswers.delete(data.messageId);}
         hideThinkingIndicator();addMessage(data?.error||'Unable to answer. Please try again.','error');
       }
       whysperAPI?.onTranscriptionLlmResponseStart?.((_event,data)=>beginAnswer(data));

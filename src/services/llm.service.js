@@ -966,31 +966,33 @@ class LLMService {
   }
 
   /**
-   * Run a streaming Gemini request with the same model-fallback + retry policy
-   * as executeRequest. Accumulates and returns the full text; invokes onDelta
+   * Run one streaming request against the configured Gemini model. Accumulates and returns the full text; invokes onDelta
    * for each chunk.
    */
   async executeStreamingRequest(geminiRequest, onDelta) {
-    const apiKey = config.getApiKey('GEMINI');
-    const models = [...new Set([this.model,...(config.get('llm.gemini.fallbackModels')||[])])];
-    let lastError;
-    for (const model of models) {
-      let emitted = false;
-      try {
-        const text = await this._streamRequestForModel(geminiRequest,model,apiKey,delta=>{
-          emitted = true;
-          if (typeof onDelta === 'function') onDelta(delta);
-        });
-        if (!text) throw new Error('Empty streamed response from Gemini API');
-        return text;
-      } catch(error) {
-        lastError=error;
-        // Never retry partial output or invalid credentials/configuration.
-        if (emitted || !/HTTP (404|429|5\d\d)|unavailable|high demand|quota|rate.limit|network|timeout|econn|enotfound/i.test(error.message)) throw error;
-        logger.warn('Trying next model after a transient streaming failure',{model,error:error.message});
-      }
+    const model=this.model;
+    try {
+      const text=await this._streamRequestForModel(geminiRequest,model,config.getApiKey('GEMINI'),onDelta);
+      if(!text)throw new Error('Gemini returned no text for this request.');
+      return text;
+    } catch(error) {
+      throw this.describeStreamingError(error,model);
     }
-    throw lastError || new Error('Gemini streaming request failed');
+  }
+
+  describeStreamingError(error,model) {
+    const original=String(error.message||error);
+    const http=/^HTTP (\d+):\s*([\s\S]*)$/.exec(original);
+    let detail=original;
+    if(http){
+      try{detail=JSON.parse(http[2]).error?.message||http[2];}catch{detail=http[2];}
+    }
+    if(/First text timeout/.test(original))detail='No answer arrived within 60 seconds. The request stopped; try again when Gemini or your connection is less busy.';
+    const key=config.getApiKey('GEMINI');
+    if(key)detail=detail.split(key).join('[redacted]');
+    const result=new Error(`${model}${http?' ('+http[1]+')':''}: ${detail}`,{cause:error});
+    if(http)result.status=Number(http[1]);
+    return result;
   }
 
   getHttpsAgent() {
@@ -1001,7 +1003,6 @@ class LLMService {
   getModelGenerationConfig(generationConfig,modelName) {
     const settings={...generationConfig};
     if (modelName==='gemini-3.8-flash') settings.thinkingConfig={thinkingLevel:'low'};
-    if (modelName==='gemini-2.5-flash') settings.thinkingConfig={thinkingBudget:0};
     return settings;
   }
 
@@ -1041,6 +1042,7 @@ class LLMService {
 
         res.setEncoding('utf8');
         res.on('data', (chunk) => {
+          if(settled)return;
           buffer += chunk;
           let idx;
           while ((idx = buffer.indexOf('\n')) !== -1) {
@@ -1081,7 +1083,7 @@ class LLMService {
         finish(new Error('Streaming request timeout'));
       });
 
-      firstTextTimer=setTimeout(()=>{finish(new Error('First text timeout'));req.destroy();},config.get('llm.gemini.firstTextTimeout')||12000);
+      firstTextTimer=setTimeout(()=>{finish(new Error('First text timeout'));req.destroy();},config.get('llm.gemini.firstTextTimeout')||60000);
       req.write(postData);
       req.end();
     });
