@@ -537,6 +537,13 @@ class WindowManager {
     return window;
   }
 
+  refreshWindowsOverlay(window) {
+    // Reassert z-order without activating the overlay or restoring hidden windows.
+    if (window.isDestroyed() || !window.isVisible() || this.isScreenBeingShared) return;
+    window.setAlwaysOnTop(true, 'screen-saver');
+    window.moveTop();
+  }
+
   applyStealthMeasures(window, type) {
     // Enhanced always-on-top enforcement for all platforms
     if (process.platform === 'darwin') {
@@ -646,6 +653,8 @@ class WindowManager {
                 window.setAlwaysOnTop(true, 'screen-saver', 1);
               }
             }, 50);
+          } else if (process.platform === 'win32') {
+            this.refreshWindowsOverlay(window);
           } else {
             window.setAlwaysOnTop(true);
           }

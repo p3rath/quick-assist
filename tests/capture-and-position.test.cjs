@@ -14,3 +14,10 @@ test('moving the pointer between monitors does not relocate user-positioned wind
 test('visibility toggle restores toolbar/chat without opening settings or onboarding',()=>{const windows=new Map();for(const type of ['main','chat','settings','onboarding','llmResponse']){let visible=false;windows.set(type,{isDestroyed:()=>false,isVisible:()=>visible,hide:()=>{visible=false;},show:()=>{visible=true;},focus(){}});}wm.windows=windows;wm.showOnCurrentDesktop=w=>w.show();wm.isScreenBeingShared=false;wm.showAllWindows();assert.ok(windows.get('main').isVisible());assert.ok(windows.get('chat').isVisible());assert.equal(windows.get('settings').isVisible(),false);assert.equal(windows.get('onboarding').isVisible(),false);wm.toggleVisibility();assert.ok([...windows.values()].every(w=>!w.isVisible()));wm.toggleVisibility();assert.equal(windows.get('settings').isVisible(),false);assert.equal(windows.get('llmResponse').isVisible(),false);assert.equal(wm.windowConfigs.chat.height,350);});
 
 test('text-heavy screens keep PNG when it is smaller than JPEG',async t=>{t.mock.method(capture,'captureScreenshot',async()=>({image:{toPNG:()=>Buffer.from('png'),toJPEG:()=>Buffer.alloc(100),getSize:()=>({width:1920,height:1080})},metadata:{displayId:1}}));const result=await capture.captureAndProcess();assert.equal(result.mimeType,'image/png');assert.equal(result.imageBuffer.toString(),'png');});
+
+test('fullscreen overlay refresh raises only visible windows without activating or moving them',()=>{
+ let calls=[];const window={isDestroyed:()=>false,isVisible:()=>true,setAlwaysOnTop:(...args)=>calls.push(args),moveTop:()=>calls.push('raise'),focus:()=>{throw Error('Must not steal focus');},show:()=>{throw Error('Must not show hidden windows');}};
+ wm.isScreenBeingShared=false;wm.refreshWindowsOverlay(window);assert.deepEqual(calls,[[true,'screen-saver'],'raise']);
+ calls=[];window.isVisible=()=>false;wm.refreshWindowsOverlay(window);assert.deepEqual(calls,[]);
+ window.isVisible=()=>true;wm.isScreenBeingShared=true;wm.refreshWindowsOverlay(window);assert.deepEqual(calls,[]);wm.isScreenBeingShared=false;
+});

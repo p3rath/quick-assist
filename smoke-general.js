@@ -16,6 +16,20 @@ app.whenReady().then(async()=>{
  const oldSize=main.getContentSize();main.setContentSize(oldSize[0],80);main.setContentSize(...oldSize);wm.trackActiveScreen();assert.deepEqual(main.getPosition(),chosen);
  assert.equal(await main.webContents.executeJavaScript('getComputedStyle(document.querySelector(".drag-handle")).getPropertyValue("-webkit-app-region")'),'drag');
  wm.hideAllWindows();wm.toggleVisibility();assert.equal(wm.windows.get('settings').isVisible(),false);assert.equal(wm.windows.get('onboarding')?.isVisible()||false,false);assert.equal(wm.windows.get('chat').getSize()[1],350);wm.toggleVisibility();wm.toggleVisibility();assert.equal(wm.windows.get('settings').isVisible(),false);
+ // An ordinary fullscreen app must keep input focus while the overlay stays raised.
+ const fullscreenApp=new BrowserWindow({show:false,fullscreen:true,webPreferences:{sandbox:true}});
+ await fullscreenApp.loadURL('data:text/html,<h1>Fullscreen regression fixture</h1>');
+ fullscreenApp.show();fullscreenApp.setFullScreen(true);fullscreenApp.focus();
+ await new Promise(r=>setTimeout(r,1000));
+ assert.equal(fullscreenApp.isFullScreen(),true);
+ const toolbarPosition=main.getPosition();
+ wm.refreshWindowsOverlay(main);wm.refreshWindowsOverlay(wm.windows.get('chat'));
+ assert.equal(main.isVisible(),true);assert.equal(main.isAlwaysOnTop(),true);
+ assert.equal(wm.windows.get('chat').isVisible(),true);
+ assert.equal(fullscreenApp.isFocused(),true,'overlay refresh must not steal fullscreen keyboard focus');
+ assert.deepEqual(main.getPosition(),toolbarPosition);
+ wm.hideAllWindows();wm.refreshWindowsOverlay(main);assert.equal(main.isVisible(),false);
+ fullscreenApp.destroy();wm.showAllWindows();
  // Compare encodings on the same desktop; this is an upload-size measurement, not a live Gemini benchmark.
  const captureService=require('./src/services/capture.service');const originalCapture=captureService.captureScreenshot.bind(captureService);
  captureService.captureScreenshot=async options=>{const result=await originalCapture(options);const png=result.image.toPNG();const jpeg=result.image.toJPEG(88);console.log('Desktop capture encoding bytes: '+JSON.stringify({png:png.length,jpeg:jpeg.length}));return result;};

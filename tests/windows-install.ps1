@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$qaInstaller = (Resolve-Path 'dist/OpenCluely-General-Setup-1.1.0.exe').Path
+$qaInstaller = (Resolve-Path 'dist/OpenCluely-General-Setup-1.1.1.exe').Path
 $qaInstallDir = Join-Path $env:RUNNER_TEMP 'OpenCluely-General-Install'
 $qaResult = Start-Process -FilePath $qaInstaller -ArgumentList @('/S', "/D=$qaInstallDir") -Wait -PassThru
 if ($qaResult.ExitCode -ne 0) {
